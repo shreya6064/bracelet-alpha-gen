@@ -1,4 +1,7 @@
 # bracelet-alpha-gen
+
+https://shreya6064.github.io/bracelet-alpha-gen/
+
 A tool that generates alpha bracelet patterns automatically from text &amp; emojis, with complete customization.
 
 It lets you take any text in any font and colour and turn it into an alpha bracelet pattern.
