@@ -10,7 +10,6 @@ If you turn on "Clip Colors" it removes the light purple/dark purple thing going
 <img width="1918" height="870" alt="demo2" src="https://github.com/user-attachments/assets/23e27b30-f29b-4045-bfd0-0045c3dc3460" />
 
 Finally, hit download to get this:
-<img width="3200" height="396" alt="export" src="https://github.com/user-attachments/assets/0b55386d-9b64-471e-a071-326e5ff8c24b" />
-
+<img width="3200" height="396" alt="bracelet_4x (8)" src="https://github.com/user-attachments/assets/1dff59c4-5efe-4a14-9acb-989a1998a844" />
 
 I would love feedback/reviews. There's a feedback button on the website that links to my personal website's contact page. Cheers!
