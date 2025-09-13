@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bracelet Alpha Generator</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+</head>
+<body>
+  <h2>Bracelet Alpha Pattern Generator💖</h2>
+
+  <div class="controls">
+    <label>
+      Text (Emojis are supported!)
+      <input type="text" id="textInput" value="Hello world!">
+    </label>
+
+    <label>
+      Google Font Link
+      <input type="text" id="googleFontLink"
+             value="https://fonts.googleapis.com/css2?family=Berkshire+Swash&display=swap"
+             placeholder="Paste Google Fonts link">
+    </label>
+
+    <label>
+      Font Family
+      <input type="text" id="fontFamily" value="Berkshire Swash">
+    </label>
+
+    <label class="inline">
+      <input type="checkbox" id="boldToggle">
+      Bold
+    </label>
+
+    <label class="inline">
+      <input type="checkbox" id="italicToggle">
+      Italic
+    </label>
+
+    <label>
+      Font Size
+      <input type="range" id="fontSize" min="10" max="200" value="80">
+      <output id="fontSizeVal">80</output>
+    </label>
+
+    <label>
+      Letter Spacing
+      <input type="range" id="letterSpacing" min="0" max="50" value="0">
+      <output id="letterSpacingVal">0</output>
+    </label>
+
+    <label>
+      Text Color
+      <input type="color" id="textColor" value="#000000">
+    </label>
+
+    <label>
+      Background Color
+      <input type="color" id="bgColor" value="#ffffff">
+    </label>
+
+    <label>
+      Canvas Width
+      <input type="range" id="canvasWidth" min="60" max="2000" value="800">
+      <output id="canvasWidthVal">800</output>
+    </label>
+
+    <label>
+      Canvas Height
+      <input type="range" id="canvasHeight" min="10" max="400" value="100">
+      <output id="canvasHeightVal">100</output>
+    </label>
+
+    <label>
+      Pixel Size
+      <input type="range" id="pixelSize" min="1" max="10" value="5">
+      <output id="pixelSizeVal">5</output>
+    </label>
+
+    <label>
+      Colors
+      <input type="range" id="colorCount" min="2" max="12" value="3">
+      <output id="colorCountVal">3</output>
+    </label>
+
+    <label>
+      Grid Line Thickness (preview)
+      <input type="range" id="gridThickness" min="0.1" max="3" step="0.1" value="0.5">
+      <output id="gridThicknessVal">0.5</output>
+    </label>
+
+    <label class="inline">
+      <input type="checkbox" id="showGrid" checked>
+      Show Grid
+    </label>
+
+    <label>
+      Download Scale
+      <input type="range" id="downloadScale" min="1" max="16" step="1" value="4">
+      <output id="downloadScaleVal">4×</output>
+    </label>
+
+    <label class="inline">
+      <input type="checkbox" id="clipColors">
+      Clip Colors (FG/BG)
+    </label>
+
+    <button id="recenterBtn">Recenter</button>
+    <button id="downloadBtn">Download</button>
+  </div>
+
+  <canvas id="canvas" width="800" height="100"></canvas>
+  <div id="stats" class="stats">Pattern size (threads): —</div>
+  <div id="lengthCm" class="stats">Approx length: —</div>
+  <p>Drag to move the text around. Adjust the number of colors to choose how many you want. Enable "Clip Colors" to remove the gradient from the text and make it plain.</p>
+  <p>Get more fonts here: <a href="https://fonts.google.com/">here.</a></p>
+  <p>Made with 💖 by <a href = "https://shreya6064.github.io/portfolio">Shreya Punjabi</a></p>
+  <p><a href="https://shreya6064.github.io/portfolio/contact.html">Feedback?</a></p>
+
+  <script>
+    const STITCH_LENGTH_CM = 0.15875;
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const statsEl = document.getElementById("stats");
+    const lengthEl = document.getElementById("lengthCm");
+
+    const textInput = document.getElementById("textInput");
+    const googleFontLink = document.getElementById("googleFontLink");
+    const fontFamilyInput = document.getElementById("fontFamily");
+    const boldToggle = document.getElementById("boldToggle");
+    const italicToggle = document.getElementById("italicToggle");
+    const fontSizeSlider = document.getElementById("fontSize");
+    const fontSizeVal = document.getElementById("fontSizeVal");
+    const letterSpacingSlider = document.getElementById("letterSpacing");
+    const letterSpacingVal = document.getElementById("letterSpacingVal");
+    const textColor = document.getElementById("textColor");
+    const bgColor = document.getElementById("bgColor");
+    const canvasWidth = document.getElementById("canvasWidth");
+    const canvasWidthVal = document.getElementById("canvasWidthVal");
+    const canvasHeight = document.getElementById("canvasHeight");
+    const canvasHeightVal = document.getElementById("canvasHeightVal");
+    const pixelSizeSlider = document.getElementById("pixelSize");
+    const pixelSizeVal = document.getElementById("pixelSizeVal");
+    const colorCountSlider = document.getElementById("colorCount");
+    const colorCountVal = document.getElementById("colorCountVal");
+    const showGrid = document.getElementById("showGrid");
+    const gridThickness = document.getElementById("gridThickness");
+    const gridThicknessVal = document.getElementById("gridThicknessVal");
+    const downloadScale = document.getElementById("downloadScale");
+    const downloadScaleVal = document.getElementById("downloadScaleVal");
+    const clipColorsEl = document.getElementById("clipColors");
+    const recenterBtn = document.getElementById("recenterBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    let dragging = false;
+    let dragOffset = { x: 0, y: 0 };
+    let textPos = { x: 0, y: 0 };
+
+    function hexToRgb(hex) {
+      let h = hex.replace('#','').trim();
+      if (h.length === 3) h = h.split('').map(c=>c+c).join('');
+      const n = parseInt(h, 16);
+      return [ (n>>16)&255, (n>>8)&255, n&255 ];
+    }
+    function dist2(a, b) {
+      const dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2];
+      return dr*dr + dg*dg + db*db;
+    }
+
+    // ---- Google Fonts helpers ----
+    function parseGoogleFontFamily(url) {
+      try {
+        let fam = null;
+        if (url.includes('family=')) {
+          const match = url.match(/family=([^:&]+)/i);
+          if (match && match[1]) fam = decodeURIComponent(match[1]);
+        }
+        if (!fam) return null;
+        fam = fam.split(':')[0].replace(/\+/g, ' ').trim();
+        return fam || null;
+      } catch { return null; }
+    }
+
+    let fontLoadDebounce;
+    function handleFontLinkInput() {
+      clearTimeout(fontLoadDebounce);
+      fontLoadDebounce = setTimeout(() => {
+        const url = googleFontLink.value.trim();
+        if (!url) return;
+        const parsedFam = parseGoogleFontFamily(url);
+        if (parsedFam) fontFamilyInput.value = parsedFam;
+        loadGoogleFont(url);
+      }, 120);
+    }
+
+    function loadGoogleFont(url) {
+      const existing = document.getElementById("googleFontLinkTag");
+      if (existing) existing.remove();
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = url;
+      link.id = "googleFontLinkTag";
+      document.head.appendChild(link);
+
+      const fam = fontFamilyInput.value.trim();
+      const style = italicToggle.checked ? 'italic ' : '';
+      const weight = boldToggle.checked ? 'bold ' : '';
+      if (document.fonts && fam) {
+        document.fonts.load(`${style}${weight}${fontSizeSlider.value}px "${fam}"`)
+          .then(draw)
+          .catch(() => setTimeout(draw, 400));
+      } else {
+        setTimeout(draw, 400);
+      }
+    }
+
+    function setFontOn(ctx2d) {
+      const font = fontFamilyInput.value;
+      const fontSize = parseInt(fontSizeSlider.value);
+      const style = italicToggle.checked ? 'italic ' : '';
+      const weight = boldToggle.checked ? 'bold ' : '';
+      ctx2d.font = `${style}${weight}${fontSize}px '${font}'`;
+      ctx2d.textBaseline = "top";
+      ctx2d.fillStyle = textColor.value;
+    }
+
+    function drawTextTo(ctx2d, xStart, yStart) {
+      setFontOn(ctx2d);
+      const spacing = parseInt(letterSpacingSlider.value);
+      let x = xStart;
+      for (let char of (textInput.value || " ")) {
+        ctx2d.fillText(char, x, yStart);
+        x += ctx2d.measureText(char).width + spacing;
+      }
+    }
+
+    function getTextSize(text, spacing) {
+      setFontOn(ctx);
+      let width = 0;
+      for (let char of text) width += ctx.measureText(char).width + spacing;
+      return { width, height: parseInt(fontSizeSlider.value) };
+    }
+
+    function recenterText() {
+      const text = textInput.value || " ";
+      const spacing = parseInt(letterSpacingSlider.value);
+      const { width, height } = getTextSize(text, spacing);
+      textPos.x = Math.max(0, (parseInt(canvasWidth.value) - width) / 2);
+      textPos.y = Math.max(0, (parseInt(canvasHeight.value) - height) / 2);
+    }
+
+    // --- K-means ---
+    function kmeansPlusPlusInit(points, k) {
+      const centroids = [];
+      const n = points.length;
+      if (!n) return centroids;
+      centroids.push(points[Math.floor(Math.random()*n)]);
+      while (centroids.length < k) {
+        let maxD = -1, maxP = points[0];
+        for (let p of points) {
+          let dmin = Infinity;
+          for (let c of centroids) dmin = Math.min(dmin, dist2(p, c));
+          if (dmin > maxD) { maxD = dmin; maxP = p; }
+        }
+        centroids.push(maxP);
+      }
+      return centroids.map(c => c.slice());
+    }
+    function kmeans(points, k, iters=8) {
+      k = Math.max(2, Math.min(k, points.length || 2));
+      let C = kmeansPlusPlusInit(points, k);
+      const sums = Array(k).fill(0).map(_ => [0,0,0]);
+      const counts = Array(k).fill(0);
+      for (let iter=0; iter<iters; iter++) {
+        sums.forEach(s => s[0]=s[1]=s[2]=0);
+        counts.fill(0);
+        for (let p of points) {
+          let bi=0, bd=Infinity;
+          for (let i=0;i<k;i++){ const d=dist2(p,C[i]); if(d<bd){bd=d;bi=i;} }
+          sums[bi][0]+=p[0]; sums[bi][1]+=p[1]; sums[bi][2]+=p[2]; counts[bi]++;
+        }
+        for (let i=0;i<k;i++) {
+          if (counts[i]>0) {
+            C[i][0]=Math.round(sums[i][0]/counts[i]);
+            C[i][1]=Math.round(sums[i][1]/counts[i]);
+            C[i][2]=Math.round(sums[i][2]/counts[i]);
+          } else {
+            C[i]=points[Math.floor(Math.random()*points.length)].slice();
+          }
+        }
+      }
+      return C;
+    }
+    function nearestCentroidIndex(p, C) {
+      let bi=0, bd=Infinity;
+      for (let i=0;i<C.length;i++){ const d=dist2(p,C[i]); if(d<bd){bd=d;bi=i;} }
+      return bi;
+    }
+
+    function renderPattern(targetCtx, opts) {
+      const {
+        width, height, pixelSize, colorCount,
+        showGrid, gridThickness, bgColor: bgHex,
+        textX, textY, clipColors
+      } = opts;
+
+      const bgRGB = hexToRgb(bgHex);
+      const fgHex = textColor.value;
+
+      targetCtx.canvas.width = width;
+      targetCtx.canvas.height = height;
+      targetCtx.clearRect(0,0,width,height);
+      targetCtx.fillStyle = bgHex;
+      targetCtx.fillRect(0,0,width,height);
+
+      drawTextTo(targetCtx, textX, textY);
+
+      const base = targetCtx.getImageData(0,0,width,height).data;
+      const blocks = [];
+      for (let by=0; by<height; by+=pixelSize) {
+        for (let bx=0; bx<width; bx+=pixelSize) {
+          let rSum=0,gSum=0,bSum=0,aSum=0,count=0;
+          const yEnd = Math.min(by+pixelSize, height);
+          const xEnd = Math.min(bx+pixelSize, width);
+          for (let y=by; y<yEnd; y++) {
+            let row = (y*width)*4;
+            for (let x=bx; x<xEnd; x++) {
+              const idx = row + x*4;
+              rSum += base[idx+0];
+              gSum += base[idx+1];
+              bSum += base[idx+2];
+              aSum += base[idx+3];
+              count++;
+            }
+          }
+          const r = Math.round(rSum/count);
+          const g = Math.round(gSum/count);
+          const b = Math.round(bSum/count);
+          blocks.push({x:bx, y:by, color:[r,g,b]});
+        }
+      }
+
+      const points = blocks.map(b => b.color);
+      const K = Math.max(2, Math.min(colorCount, points.length || 2));
+      const centroids = kmeans(points, K);
+
+      let bgIdx = 0, best = Infinity;
+      for (let i=0;i<centroids.length;i++){
+        const d = dist2(centroids[i], bgRGB);
+        if (d < best) { best = d; bgIdx = i; }
+      }
+
+      for (let i=0;i<blocks.length;i++) {
+        const b = blocks[i];
+        const ci = nearestCentroidIndex(b.color, centroids);
+        if (clipColors) {
+          targetCtx.fillStyle = (ci === bgIdx)
+            ? `rgb(${bgRGB[0]},${bgRGB[1]},${bgRGB[2]})`
+            : fgHex;
+        } else {
+          const c = centroids[ci];
+          targetCtx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        }
+        targetCtx.fillRect(b.x, b.y, pixelSize, pixelSize);
+      }
+
+      if (showGrid) {
+        targetCtx.strokeStyle = "rgba(0,0,0,0.5)";
+        targetCtx.lineWidth = gridThickness;
+        for (let x=0; x<=width; x+=pixelSize) {
+          targetCtx.beginPath(); targetCtx.moveTo(x,0); targetCtx.lineTo(x,height); targetCtx.stroke();
+        }
+        for (let y=0; y<=height; y+=pixelSize) {
+          targetCtx.beginPath(); targetCtx.moveTo(0,y); targetCtx.lineTo(width,y); targetCtx.stroke();
+        }
+      }
+    }
+
+    function draw() {
+      renderPattern(ctx, {
+        width: parseInt(canvasWidth.value),
+        height: parseInt(canvasHeight.value),
+        pixelSize: parseInt(pixelSizeSlider.value),
+        colorCount: parseInt(colorCountSlider.value),
+        showGrid: showGrid.checked,
+        gridThickness: parseFloat(gridThickness.value),
+        bgColor: bgColor.value,
+        textX: textPos.x,
+        textY: textPos.y,
+        clipColors: clipColorsEl.checked
+      });
+      updateStats();
+    }
+
+    function updateStats() {
+      const p = parseInt(pixelSizeSlider.value);
+      const w = parseInt(canvasWidth.value);
+      const h = parseInt(canvasHeight.value);
+      const cols = Math.ceil(w / p);
+      const rows = Math.ceil(h / p);
+      statsEl.textContent = `Pattern size (threads): ${cols} × ${rows}  (length × width)`;
+      const lengthCm = cols * STITCH_LENGTH_CM;
+      lengthEl.textContent = `Approx length: ${lengthCm.toFixed(2)} cm`;
+    }
+
+    function updateAll() {
+      fontSizeVal.textContent = fontSizeSlider.value;
+      letterSpacingVal.textContent = letterSpacingSlider.value;
+      pixelSizeVal.textContent = pixelSizeSlider.value;
+      canvasWidthVal.textContent = canvasWidth.value;
+      canvasHeightVal.textContent = canvasHeight.value;
+      gridThicknessVal.textContent = gridThickness.value;
+      colorCountVal.textContent = colorCountSlider.value;
+      downloadScaleVal.textContent = downloadScale.value + "×";
+      draw();
+    }
+
+    // Auto-apply when typing/pasting a Google Fonts link
+    googleFontLink.addEventListener("input", handleFontLinkInput);
+    googleFontLink.addEventListener("paste", () => setTimeout(handleFontLinkInput, 0));
+    googleFontLink.addEventListener("change", handleFontLinkInput);
+
+    [
+      textInput, fontFamilyInput, boldToggle, italicToggle,
+      fontSizeSlider, letterSpacingSlider,
+      textColor, bgColor, canvasWidth, canvasHeight, pixelSizeSlider,
+      showGrid, gridThickness, colorCountSlider, downloadScale, clipColorsEl
+    ].forEach(el => el.addEventListener("input", updateAll));
+
+    downloadBtn.addEventListener("click", () => {
+      const baseW = parseInt(canvasWidth.value);
+      const baseH = parseInt(canvasHeight.value);
+      const pixelSize = parseInt(pixelSizeSlider.value);
+      const scale = Math.max(1, parseInt(downloadScale.value) || 1);
+
+      const baseCanvas = document.createElement("canvas");
+      const bctx = baseCanvas.getContext("2d");
+      renderPattern(bctx, {
+        width: baseW, height: baseH,
+        pixelSize,
+        colorCount: parseInt(colorCountSlider.value),
+        showGrid: false,
+        gridThickness: 0,
+        bgColor: bgColor.value,
+        textX: textPos.x, textY: textPos.y,
+        clipColors: clipColorsEl.checked
+      });
+
+      const out = document.createElement("canvas");
+      out.width = baseW * scale;
+      out.height = baseH * scale;
+      const octx = out.getContext("2d");
+      octx.imageSmoothingEnabled = false;
+      octx.webkitImageSmoothingEnabled = false;
+      octx.msImageSmoothingEnabled = false;
+      octx.drawImage(baseCanvas, 0, 0, out.width, out.height);
+
+      if (showGrid.checked) {
+        octx.save();
+        octx.strokeStyle = "rgba(0,0,0,0.5)";
+        octx.lineWidth = 1;
+        const step = pixelSize * scale;
+        for (let x = 0; x <= out.width; x += step) {
+          octx.beginPath(); octx.moveTo(x, 0); octx.lineTo(x, out.height); octx.stroke();
+        }
+        for (let y = 0; y <= out.height; y += step) {
+          octx.beginPath(); octx.moveTo(0, y); octx.lineTo(out.width, y); octx.stroke();
+        }
+        octx.restore();
+      }
+
+      const a = document.createElement("a");
+      a.download = `bracelet_${scale}x.png`;
+      a.href = out.toDataURL("image/png");
+      a.click();
+    });
+
+    canvas.addEventListener("mousedown", e => {
+      dragging = true;
+      const rect = canvas.getBoundingClientRect();
+      dragOffset.x = e.clientX - rect.left - textPos.x;
+      dragOffset.y = e.clientY - rect.top - textPos.y;
+    });
+    canvas.addEventListener("mouseup", () => dragging = false);
+    canvas.addEventListener("mouseleave", () => dragging = false);
+    canvas.addEventListener("mousemove", e => {
+      if (!dragging) return;
+      const rect = canvas.getBoundingClientRect();
+      textPos.x = e.clientX - rect.left - dragOffset.x;
+      textPos.y = e.clientY - rect.top - dragOffset.y;
+      draw();
+    });
+
+    recenterBtn.addEventListener("click", () => { recenterText(); draw(); });
+
+    // --- Initial load with Berkshire Swash ---
+    document.addEventListener("DOMContentLoaded", () => {
+      // Trigger font load based on the pre-filled URL & family
+      handleFontLinkInput();
+      recenterText();
+      updateAll();
+    });
+  </script>
+</body>
+</html>
